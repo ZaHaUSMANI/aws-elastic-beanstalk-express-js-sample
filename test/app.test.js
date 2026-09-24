@@ -1,11 +1,12 @@
 const http = require('http');
 const { spawn } = require('child_process');
 
-const server = spawn('node', ['app.js']);
-
+const server = spawn('node', ['app.js'], {
+  env: { ...process.env, PORT: '8081' }
+});
 function request() {
   return new Promise((resolve, reject) => {
-    const req = http.get('http://localhost:8080', (res) => {
+    const req = http.get('http://localhost:8081', (res) => {
       let data = '';
 
       res.on('data', (chunk) => {
