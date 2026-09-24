@@ -44,7 +44,7 @@ pipeline {
         stage('Test Docker Application') {
             steps {
                 echo 'Testing application running inside Docker...'
-                sh 'curl -f http://localhost:8081'
+                sh 'curl -f http://docker:8081'
             }
         }
 
