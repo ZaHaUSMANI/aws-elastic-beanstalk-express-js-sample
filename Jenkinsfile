@@ -53,6 +53,21 @@ pipeline {
             }
         }
 
+        stage('Security Scan') {
+            steps {
+                echo 'Scanning project dependencies for High and Critical vulnerabilities...'
+                sh '''
+                    docker run --rm \
+                        -v "$PWD:/src" \
+                        aquasec/trivy:0.66.0 \
+                        fs \
+                        --scanners vuln \
+                        --severity HIGH,CRITICAL \
+                        --exit-code 1 \
+                        /src
+                '''
+            }
+        }
         stage('Push Docker Image') {
             steps {
                 echo 'Logging in to Docker Hub and pushing the image...'
