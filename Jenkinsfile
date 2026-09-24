@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timestamps()
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -45,6 +50,32 @@ pipeline {
             steps {
                 echo 'Testing application running inside Docker...'
                 sh 'curl -f http://docker:8081'
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                echo 'Logging in to Docker Hub and pushing the image...'
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKERHUB_USERNAME',
+                        passwordVariable: 'DOCKERHUB_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+
+                        docker tag assessment2-node-app:${BUILD_NUMBER} "$DOCKERHUB_USERNAME/assessment2-node-app:${BUILD_NUMBER}"
+                        docker tag assessment2-node-app:${BUILD_NUMBER} "$DOCKERHUB_USERNAME/assessment2-node-app:latest"
+
+                        docker push "$DOCKERHUB_USERNAME/assessment2-node-app:${BUILD_NUMBER}"
+                        docker push "$DOCKERHUB_USERNAME/assessment2-node-app:latest"
+
+                        docker logout
+                    '''
+                }
             }
         }
 
