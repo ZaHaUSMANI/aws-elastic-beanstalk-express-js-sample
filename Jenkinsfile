@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent none
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
@@ -15,18 +15,34 @@ pipeline {
         }
 
         stage('Install Dependencies') {
+            agent {
+               docker {
+                   image 'node:16.20.2-bookworm'
+                   reuseNode true
+                }
+            }
             steps {
-                echo 'Installing Node.js dependencies...'
+                echo 'Installing Node.js dependencies using Node 16...'
+                sh 'node --version'
+                sh 'npm --version'
                 sh 'npm ci'
             }
-        }
+         }
 
+        
         stage('Run Tests') {
-            steps {
-                echo 'Running application tests...'
-                sh 'npm test'
+            agent {
+                docker {
+                image 'node:16.20.2-bookworm'
+                reuseNode true
+                }
             }
-        }
+            steps {
+               echo 'Running application tests using Node 16...'
+               sh 'node --version'
+               sh 'npm test'
+            }
+        }  
 
         stage('Build Docker Image') {
             steps {
