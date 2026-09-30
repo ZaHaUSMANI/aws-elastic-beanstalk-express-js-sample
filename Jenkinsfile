@@ -7,6 +7,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             agent any
             steps {
@@ -16,36 +17,37 @@ pipeline {
         }
 
         stage('Install Dependencies') {
-            agent {
-               docker {
-                   image 'node:16.20.2-bookworm'
-                   reuseNode true
-                }
-            }
+            agent any
             steps {
-                echo 'Installing Node.js dependencies using Node 16...'
-                sh 'node --version'
-                sh 'npm --version'
-                sh 'npm ci'
+                echo 'Installing Node.js dependencies using Node 16 Docker container...'
+                sh '''
+                    docker run --rm \
+                        -u 1000:1000 \
+                        -w /workspace/assessment2-pipeline \
+                        -v jenkins-docker-compose_jenkins-workspace:/workspace \
+                        node:16.20.2-bookworm \
+                        sh -c "node --version && npm --version && npm ci"
+                '''
             }
-         }
+        }
 
-        
         stage('Run Tests') {
-            agent {
-                docker {
-                image 'node:16.20.2-bookworm'
-                reuseNode true
-                }
-            }
+            agent any
             steps {
-               echo 'Running application tests using Node 16...'
-               sh 'node --version'
-               sh 'npm test'
+                echo 'Running application tests using Node 16 Docker container...'
+                sh '''
+                    docker run --rm \
+                        -u 1000:1000 \
+                        -w /workspace/assessment2-pipeline \
+                        -v jenkins-docker-compose_jenkins-workspace:/workspace \
+                        node:16.20.2-bookworm \
+                        sh -c "node --version && npm --version && npm test"
+                '''
             }
-        }  
+        }
 
         stage('Build Docker Image') {
+            agent any
             steps {
                 echo 'Building Docker image...'
                 sh 'docker build -t assessment2-node-app:${BUILD_NUMBER} .'
@@ -53,6 +55,7 @@ pipeline {
         }
 
         stage('Run Docker Container') {
+            agent any
             steps {
                 echo 'Starting Docker container...'
                 sh '''
@@ -64,6 +67,7 @@ pipeline {
         }
 
         stage('Test Docker Application') {
+            agent any
             steps {
                 echo 'Testing application running inside Docker...'
                 sh 'curl -f http://docker:8081'
@@ -71,6 +75,7 @@ pipeline {
         }
 
         stage('Security Scan') {
+            agent any
             steps {
                 echo 'Scanning project dependencies for High and Critical vulnerabilities...'
                 sh '''
@@ -81,11 +86,15 @@ pipeline {
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --exit-code 1 \
+                        --format table \
+                        --output /src/trivy-report.txt \
                         /src
                 '''
             }
         }
+
         stage('Push Docker Image') {
+            agent any
             steps {
                 echo 'Logging in to Docker Hub and pushing the image...'
 
@@ -110,16 +119,16 @@ pipeline {
                 }
             }
         }
-
-        stage('Cleanup') {
-            steps {
-                echo 'Cleaning up Docker container...'
-                sh 'docker rm -f assessment2-test-container || true'
-            }
-        }
     }
 
     post {
+        always {
+            echo 'Cleaning up Docker test container...'
+            sh 'docker rm -f assessment2-test-container || true'
+
+            archiveArtifacts artifacts: 'trivy-report.txt', allowEmptyArchive: true, fingerprint: true
+        }
+
         success {
             echo 'CI/CD pipeline completed successfully!'
         }
